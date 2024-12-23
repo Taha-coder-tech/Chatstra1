@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Chat</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        #mediaList li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chat App</h1>
+    <input type="file" id="file" />
+    <button onclick="sendMedia()">Send Media</button>
+    <ul id="mediaList"></ul>
+
+    <script>
+        const socket = io('http://localhost:5000');
+
+        // Send media function
+        const sendMedia = () => {
+            const fileInput = document.getElementById('file');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Please select a file!');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('sender', 'User1');
+            formData.append('receiver', 'User2');
+
+            fetch('http://localhost:5000/api/media/upload', {
+                method: 'POST',
+                body: formData,
+            })
+                .then((response) => response.json())
+                .then((media) => {
+                    console.log('Media uploaded:', media);
+                    socket.emit('sendMedia', media);
+                })
+                .catch((error) => console.error('Error uploading media:', error));
+
+            fileInput.value = ''; // Reset input
+        };
+
+        // Render media messages
+        const renderMediaMessage = (media) => {
+            const mediaItem = document.createElement('li');
+
+            if (media.fileType.startsWith('image')) {
+                mediaItem.innerHTML = `<img src="${media.fileUrl}" alt="Media" style="width: 200px;" />`;
+            } else if (media.fileType.startsWith('video')) {
+                mediaItem.innerHTML = `
+                    <a href="${media.fileUrl}" target="_blank">
+                        <img src="${media.thumbnailUrl}" alt="Thumbnail" style="width: 200px;" />
+                    </a>
+                `;
+            } else {
+                mediaItem.innerHTML = `<a href="${media.fileUrl}" download>Download File</a>`;
+            }
+
+            return mediaItem;
+        };
+
+        // Handle received media
+        socket.on('receiveMedia', (media) => {
+            const mediaList = document.getElementById('mediaList');
+            const mediaItem = renderMediaMessage(media);
+            mediaList.appendChild(mediaItem);
+        });
+    </script>
+</body>
+</html>
