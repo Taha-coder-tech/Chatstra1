@@ -5,7 +5,7 @@ const mediaSchema = new mongoose.Schema({
     sender: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User', // Reference to the User who sent the file
-        required: true,  // Ensures the sender field is mandatory
+        required: true, // Ensures the sender field is mandatory
     },
     receiver: {
         type: mongoose.Schema.Types.ObjectId,
@@ -22,6 +22,10 @@ const mediaSchema = new mongoose.Schema({
     fileType: {
         type: String,
         required: true, // The MIME type of the uploaded file (e.g., image/jpeg, video/mp4)
+        enum: ['image', 'video', 'document'], // Restrict file types to specific categories
+    },
+    originalName: {
+        type: String, // Stores the original file name
     },
     previewUrl: {
         type: String, // URL to the preview image or thumbnail for the file

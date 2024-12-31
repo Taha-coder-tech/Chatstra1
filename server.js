@@ -1,21 +1,35 @@
+// Import required modules
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const dotenv = require('dotenv');
+const User = require('./models/userModel'); // Correct the model import path
 
-// Import database and routes
-const connectDB = require('./config/db');
+// Load environment variables
+dotenv.config();
+
+// Import routes
 const authRoutes = require('./routes/authRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const groupRoutes = require('./routes/groupRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
+const statusRoutes = require('./routes/statusRoutes'); // Added the statusRoutes
 
-// Load environment variables
-dotenv.config();
-connectDB();
+// Import the new routes
+const pollRoutes = require('./routes/pollRoutes');  // New import
 
+// Connect to the database
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/Chatstra', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+    .then(() => console.log('Database connected'))
+    .catch(err => console.error('Database connection error:', err));
+
+// Initialize Express app and middleware
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -23,7 +37,7 @@ app.use(express.json());
 // Serve uploads folder as static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Create HTTP server and Socket.IO server
+// Initialize HTTP server and Socket.IO
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -31,55 +45,64 @@ const io = new Server(server, {
     },
 });
 
-// Set up call signaling using Socket.IO
-let activeCalls = {};  // Store active calls to track users and calls
+// Active call tracking
+let activeCalls = {};
 
+// Track online users
+let usersOnline = {}; // Store userId and socketId mappings
+
+// Socket.IO connection
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-    // User joins a room (we use user ID as room ID for simplicity)
+    // User joins a room
     socket.on('joinRoom', (userId) => {
         socket.join(userId);
         console.log(`${userId} joined the room`);
     });
 
-    // Handle offer message (User initiates call)
+    // Mark user as online
+    socket.on('user-online', (userId) => {
+        usersOnline[userId] = socket.id; // Store the user's socket ID
+        console.log(`${userId} is now online`);
+    });
+
+    // Handle call offer
     socket.on('callOffer', (data) => {
         const { offer, receiverId } = data;
         console.log(`Sending call offer to ${receiverId}`);
         socket.to(receiverId).emit('callOffer', offer);
     });
 
-    // Handle answer message (Receiver answers the call)
+    // Handle call answer
     socket.on('callAnswer', (data) => {
         const { answer, receiverId } = data;
         console.log(`Sending call answer to ${receiverId}`);
         socket.to(receiverId).emit('callAnswer', answer);
     });
 
-    // Handle ICE candidate (Handling peer-to-peer connection)
+    // Handle ICE candidate
     socket.on('sendIceCandidate', (data) => {
         const { candidate, receiverId } = data;
         console.log(`Sending ICE candidate to ${receiverId}`);
         socket.to(receiverId).emit('receiveIceCandidate', candidate);
     });
 
-    // Handle call end (User ends the call)
+    // Handle call end
     socket.on('endCall', (data) => {
         const { userId, receiverId } = data;
         console.log(`Ending call with ${receiverId}`);
         socket.to(receiverId).emit('callEnded', userId);
     });
 
-    // Handle real-time messaging events (Private chat and group chat)
+    // Handle real-time messaging
     socket.on('sendMessage', async (data) => {
         const { sender, receiver, message } = data;
         console.log('Message received:', data);
 
         try {
-            // Save the chat to the database (you can replace this with your own logic)
             const chat = await Chat.create({ sender, receiver, message });
-            io.emit('receiveMessage', chat); // Broadcast to all connected clients
+            io.emit('receiveMessage', chat);
         } catch (error) {
             console.error('Error saving message:', error);
         }
@@ -117,7 +140,7 @@ io.on('connection', (socket) => {
             group.messages.push(newMessage);
             await group.save();
 
-            io.to(groupId).emit('receiveGroupMessage', newMessage); // Broadcast to group members
+            io.to(groupId).emit('receiveGroupMessage', newMessage);
         } catch (error) {
             console.error('Error sending group message:', error);
         }
@@ -168,12 +191,26 @@ io.on('connection', (socket) => {
     socket.on('reactToMessage', (data) => {
         const { messageId, emoji, senderId } = data;
 
-        // Broadcast the reaction to other users in the room (chat or group)
-        io.emit('messageReaction', { messageId, emoji, senderId }); // Adjust the event as per your logic
+        io.emit('messageReaction', { messageId, emoji, senderId });
+    });
+
+    // Handle pinning and unpinning messages
+    socket.on('pinMessage', ({ chatId, messageId }) => {
+        io.to(chatId).emit('messagePinned', { chatId, messageId });
+    });
+
+    socket.on('unpinMessage', ({ chatId, messageId }) => {
+        io.to(chatId).emit('messageUnpinned', { chatId, messageId });
     });
 
     // Handle disconnection
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
+        const userId = Object.keys(usersOnline).find(key => usersOnline[key] === socket.id);
+        if (userId) {
+            await User.findByIdAndUpdate(userId, { lastSeen: new Date() }); // Update lastSeen time
+            delete usersOnline[userId]; // Remove the user from online list
+            console.log(`${userId} is now offline`);
+        }
         console.log(`User disconnected: ${socket.id}`);
     });
 });
@@ -183,6 +220,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/status', statusRoutes); // Added statusRoutes
+
+// Use the new routes
+app.use('/api/polls', pollRoutes);  // New route for polls
+
+// Default route
+app.get('/', (req, res) => res.send('Server is running'));
 
 // Start the server
 const PORT = process.env.PORT || 5000;

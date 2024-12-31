@@ -104,7 +104,7 @@ const addAdmin = async (req, res) => {
             return res.status(404).json({ message: 'Group not found' });
         }
 
-        if (!group.admins.includes(req.userId)) {
+        if (!group.admins.includes(req.user._id)) {
             return res.status(403).json({ message: 'Only admins can add new admins' });
         }
 
@@ -131,7 +131,7 @@ const banUser = async (req, res) => {
             return res.status(404).json({ message: 'Group not found' });
         }
 
-        if (!group.admins.includes(req.userId)) {
+        if (!group.admins.includes(req.user._id)) {
             return res.status(403).json({ message: 'Only admins can ban users' });
         }
 
@@ -155,7 +155,7 @@ const setGroupRules = async (req, res) => {
             return res.status(404).json({ message: 'Group not found' });
         }
 
-        if (!group.admins.includes(req.userId)) {
+        if (!group.admins.includes(req.user._id)) {
             return res.status(403).json({ message: 'Only admins can set group rules' });
         }
 

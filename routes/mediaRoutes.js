@@ -12,7 +12,7 @@ router.post('/upload', upload.array('files'), async (req, res) => {
         }
 
         // Handle file uploads in media controller
-        await uploadMedia(req, res);  // Calling the uploadMedia function to handle media processing
+        await uploadMedia(req, res); // Call the uploadMedia function to process the media
     } catch (error) {
         console.error('Error during file upload:', error);
         return res.status(500).json({ message: 'Error during file upload', error: error.message });
@@ -25,7 +25,7 @@ router.get('/:chatId', async (req, res) => {
         const { chatId } = req.params;
 
         // Get media from the media controller
-        await getMedia(req, res, chatId); // You should implement this function to handle fetching media from your database
+        await getMedia(req, res, chatId); // Fetch media from your database in this controller
     } catch (error) {
         console.error('Error fetching media:', error);
         return res.status(500).json({ message: 'Error fetching media', error: error.message });

@@ -31,8 +31,14 @@ const chatSchema = new mongoose.Schema({
         enum: ['sent', 'delivered', 'read'], // Message delivery status
         default: 'sent',
     },
-});
+    // New fields from the update:
+    users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // New field
+    messages: [{
+        sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        content: { type: String },
+        timestamp: { type: Date, default: Date.now },
+    }],
+    pinnedMessages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }], // New field
+}, { timestamps: true });
 
-const Chat = mongoose.model('Chat', chatSchema);
-
-module.exports = Chat;
+module.exports = mongoose.model('Chat', chatSchema);

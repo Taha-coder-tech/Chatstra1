@@ -1,27 +1,52 @@
+// File: middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
 
-const authenticate = async (req, res, next) => {
-    const token = req.headers['authorization']?.split(' ')[1];  // Assuming Bearer token
+// Middleware to protect routes
+const protect = async (req, res, next) => {
+  let token;
 
-    if (!token) {
-        return res.status(403).json({ message: 'Authentication token is missing' });
-    }
-
+  // Check if there's a token in the Authorization header (Bearer token format)
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);  // Verify token
-        const user = await User.findById(decoded.userId);          // Find user in DB
+      // Get token from "Bearer token"
+      token = req.headers.authorization.split(' ')[1];
 
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
+      // If token is missing or malformed
+      if (!token) {
+        return res.status(401).json({ message: 'Token missing or malformed' });
+      }
 
-        req.userId = user._id;  // Attach user ID to request object
-        next();                 // Pass control to the next middleware
+      // Verify the token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Attach user to request object based on the decoded JWT token's id
+      req.user = await User.findById(decoded.id);
+      
+      if (!req.user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      next();
     } catch (error) {
-        console.error('Authentication error:', error);
-        res.status(401).json({ message: 'Invalid or expired token' });
+      // Handle specific JWT errors
+      if (error.name === 'JsonWebTokenError') {
+        return res.status(400).json({ message: 'Invalid token' });
+      } else if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ message: 'Token has expired' });
+      }
+
+      // Generic error handling
+      return res.status(500).json({ message: 'Server error', error: error.message });
     }
+  }
+
+  if (!token) {
+    return res.status(401).json({ message: 'Not authorized, no token' });
+  }
 };
 
-module.exports = { authenticate };
+module.exports = { protect };

@@ -2,80 +2,97 @@ const ffmpeg = require('fluent-ffmpeg');
 const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
-const Media = require('../models/mediaModel'); // Assuming you're storing media details
+const Media = require('../models/mediaModel'); // Media model
 
-// Upload multiple files handler
+// Upload media
 const uploadMedia = async (req, res) => {
-    const { sender, receiver, group, chatId } = req.body; // Make sure to include chatId
-    const files = req.files; // Handling multiple files
-
     try {
-        const mediaData = []; // Array to hold all media records
+        const { sender, receiver, group, chatId } = req.body;
 
-        // Loop through each uploaded file and process it
-        for (const file of files) {
-            const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
-            let previewUrl = null;
+        // Map uploaded files
+        const mediaList = await Promise.all(
+            req.files.map(async (file) => {
+                const fileUrl = `/uploads/${file.filename}`;
+                let previewUrl = null;
 
-            // Handle different media types
-            if (file.mimetype.startsWith('image/')) {
-                previewUrl = fileUrl; // Image preview
-            } else if (file.mimetype === 'application/pdf') {
-                previewUrl = fileUrl; // PDF preview
-            } else if (file.mimetype.startsWith('video')) {
-                // Handle video file: Generate thumbnail
-                const thumbnailPath = `thumbnails/${Date.now()}-thumbnail.jpg`;
-                const optimizedThumbnailPath = `thumbnails/${Date.now()}-optimized-thumbnail.webp`;
+                // Process different media types
+                if (file.mimetype.startsWith('image')) {
+                    previewUrl = fileUrl; // Use the original image as preview
+                } else if (file.mimetype === 'application/pdf') {
+                    previewUrl = fileUrl; // Use the original PDF as preview
+                } else if (file.mimetype.startsWith('video')) {
+                    // Handle video: generate a thumbnail
+                    const thumbnailPath = `thumbnails/${Date.now()}-thumbnail.jpg`;
+                    const optimizedThumbnailPath = `thumbnails/${Date.now()}-optimized-thumbnail.webp`;
 
-                // Generate a thumbnail for the video using FFmpeg
-                await new Promise((resolve, reject) => {
-                    ffmpeg(file.path)
-                        .screenshots({
-                            count: 1,
-                            folder: 'thumbnails',
-                            filename: path.basename(thumbnailPath),
-                            size: '320x240',
-                        })
-                        .on('end', resolve)
-                        .on('error', reject);
-                });
+                    // Generate a thumbnail using FFmpeg
+                    await new Promise((resolve, reject) => {
+                        ffmpeg(file.path)
+                            .screenshots({
+                                count: 1,
+                                folder: 'thumbnails',
+                                filename: path.basename(thumbnailPath),
+                                size: '320x240',
+                            })
+                            .on('end', resolve)
+                            .on('error', reject);
+                    });
 
-                // Optimize the generated thumbnail using Sharp
-                await sharp(thumbnailPath)
-                    .resize(320, 240) // Resize the image
-                    .webp({ quality: 80 }) // Convert to WebP format with 80% quality
-                    .toFile(optimizedThumbnailPath);
+                    // Optimize the thumbnail with Sharp
+                    await sharp(thumbnailPath)
+                        .resize(320, 240) // Resize
+                        .webp({ quality: 80 }) // Convert to WebP
+                        .toFile(optimizedThumbnailPath);
 
-                // Remove the original thumbnail after optimization
-                fs.unlinkSync(thumbnailPath);
+                    // Remove the original thumbnail
+                    fs.unlinkSync(thumbnailPath);
 
-                // Generate the URL for the optimized thumbnail
-                previewUrl = `${req.protocol}://${req.get('host')}/${optimizedThumbnailPath}`;
-            }
+                    // Use the optimized thumbnail as the preview
+                    previewUrl = `/uploads/${optimizedThumbnailPath}`;
+                }
 
-            // Create and store media record in the database
-            const media = await Media.create({
-                sender,
-                receiver,
-                group,
-                chatId, // Ensure you store chatId to link it with the chat
-                fileUrl,
-                fileType: file.mimetype,
-                previewUrl, // Store preview URL for media
-            });
+                return {
+                    sender,
+                    receiver,
+                    group,
+                    chatId,
+                    fileUrl,
+                    fileType: file.mimetype.startsWith('image')
+                        ? 'image'
+                        : file.mimetype.startsWith('video')
+                        ? 'video'
+                        : 'document',
+                    originalName: file.originalname,
+                    previewUrl,
+                };
+            })
+        );
 
-            mediaData.push(media);
-        }
+        // Save media records in the database
+        const savedMedia = await Media.insertMany(mediaList);
 
-        // Clean up the original files from the server after processing
-        files.forEach(file => fs.unlinkSync(file.path));
+        // Clean up original uploaded files
+        req.files.forEach((file) => fs.unlinkSync(file.path));
 
-        // Return media details in response
-        res.status(201).json(mediaData);
+        res.status(201).json(savedMedia);
     } catch (error) {
-        console.error('Error during file upload:', error);
-        res.status(500).json({ message: 'Error processing your request. Please try again.' });
+        console.error('Error during media upload:', error);
+        res.status(500).json({ error: 'Error processing media upload', message: error.message });
     }
 };
 
-module.exports = { uploadMedia };
+// Get media
+const getMedia = async (req, res, chatId) => {
+    try {
+        const media = await Media.find({
+            $or: [{ sender: chatId }, { receiver: chatId }],
+        }).sort({ timestamp: -1 });
+
+        res.status(200).json(media);
+    } catch (error) {
+        console.error('Error fetching media:', error);
+        res.status(500).json({ error: 'Error fetching media', message: error.message });
+    }
+};
+
+module.exports = { uploadMedia, getMedia };
