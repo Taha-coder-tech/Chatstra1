@@ -63,13 +63,18 @@ const userSchema = new mongoose.Schema(
       type: Date, // Expiry time for the 2FA code
     },
     // New fields for theme and font size preferences
-    theme: { 
-      type: String, 
-      default: 'light'  // Options: 'light' or 'dark'
+    theme: {
+      type: String,
+      default: 'light', // Options: 'light' or 'dark'
     },
-    fontSize: { 
-      type: String, 
-      default: 'medium' // Options: 'small', 'medium', 'large'
+    fontSize: {
+      type: String,
+      default: 'medium', // Options: 'small', 'medium', 'large'
+    },
+    // Add this field for language preference
+    preferredLanguage: {
+      type: String,
+      default: 'en', // Default to English
     },
   },
   { timestamps: true } // Add createdAt and updatedAt fields
@@ -89,5 +94,4 @@ userSchema.methods.verifyPassword = async function (inputPassword) {
 
 // Check if the model is already defined to prevent OverwriteModelError
 const User = mongoose.models.User || mongoose.model('User', userSchema);
-
 module.exports = User;

@@ -1,6 +1,8 @@
 // File: controllers/messageController.js
 const Message = require('../models/messageModel');
 const User = require('../models/userModel');
+const moment = require('moment'); // To handle date formatting
+const i18next = require('i18next'); // Import i18next for translations
 
 // Check if a user is blocked before sending a message
 const createMessage = async (req, res) => {
@@ -84,8 +86,72 @@ const getReactions = async (req, res) => {
     }
 };
 
+// Schedule a message
+const scheduleMessage = async (req, res) => {
+    const { senderId, receiverId, message, scheduledTime } = req.body;
+
+    try {
+        // Validate scheduledTime
+        if (!scheduledTime || moment(scheduledTime).isBefore(moment())) {
+            return res.status(400).json({ message: 'Scheduled time must be in the future.' });
+        }
+
+        // Create a new scheduled message
+        const newMessage = new Message({
+            sender: senderId,
+            receiver: receiverId,
+            message,
+            scheduledTime: moment(scheduledTime).toDate(),
+        });
+
+        await newMessage.save();
+
+        res.status(200).json({ message: 'Message scheduled successfully', newMessage });
+    } catch (error) {
+        console.error('Error scheduling message:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+// Function to send scheduled messages
+const sendScheduledMessages = async () => {
+    try {
+        const messages = await Message.find({ scheduledTime: { $lte: new Date() }, status: 'pending' });
+
+        for (const message of messages) {
+            // Send the message (e.g., through socket or another method)
+            console.log('Sending scheduled message:', message);
+
+            // Simulate sending the message (you can add your own logic here)
+            // You may use Socket.io or another notification system to send it
+            // io.to(message.receiver).emit('receiveMessage', message);
+
+            // Update the message status to "sent"
+            message.status = 'sent';
+            await message.save();
+        }
+    } catch (error) {
+        console.error('Error sending scheduled messages:', error);
+    }
+};
+
+// New function to send a message with translation
+const sendMessage = async (req, res) => {
+    try {
+        // Example of using translation
+        const message = i18next.t('messageSent');
+        res.status(200).json({ message });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
 module.exports = {
     createMessage,
     addReaction,
     getReactions,
+    scheduleMessage,
+    sendScheduledMessages,
+    sendMessage // Export the new sendMessage function
 };

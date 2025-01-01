@@ -1,5 +1,6 @@
 // File: controllers/userController.js
 const User = require('../models/userModel');
+const NotificationSettings = require('../models/notificationSettingsModel');
 const path = require('path');
 const fs = require('fs');
 
@@ -121,11 +122,48 @@ const reportUser = async (req, res) => {
     }
 };
 
+// Register user
+const registerUser = async (req, res) => {
+    const { name, email, password } = req.body;
+
+    try {
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: 'User already exists' });
+        }
+
+        // Create and save the user
+        const newUser = new User({ name, email, password });
+        await newUser.save();
+
+        // Create default notification settings for the user
+        const defaultSettings = new NotificationSettings({
+            userId: newUser._id,
+            notificationsEnabled: true,
+            messageNotifications: true,
+            groupActivityNotifications: true,
+            mentionNotifications: true,
+        });
+        await defaultSettings.save();
+
+        // Respond with the created user (omit password in response for security)
+        res.status(201).json({
+            id: newUser._id,
+            name: newUser.name,
+            email: newUser.email,
+        });
+    } catch (error) {
+        console.error('Error during user registration:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
 module.exports = { 
     updateProfilePicture, 
     updateStatus, 
     savePushToken, 
     blockUser, 
-    reportUser 
+    reportUser, 
+    registerUser 
 };
-

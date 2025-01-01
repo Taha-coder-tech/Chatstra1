@@ -1,12 +1,13 @@
 const express = require('express');
-const { addReaction, getReactions } = require('../controllers/messageController');
-const { authenticate } = require('../middleware/auth'); // Assuming you have auth middleware
+const { createPoll, voteOnPoll } = require('../controllers/pollController');
+const { protect } = require('../middleware/auth'); // Adjusted to use 'protect' from auth.js
+
 const router = express.Router();
 
-// Add reaction to message
-router.post('/react', authenticate, addReaction);
+// Create a poll in a group
+router.post('/create', protect, createPoll);
 
-// Get reactions for a message
-router.get('/:messageId/reactions', getReactions);
+// Vote on a poll
+router.post('/vote', protect, voteOnPoll);
 
 module.exports = router;

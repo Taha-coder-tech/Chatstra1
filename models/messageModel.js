@@ -1,27 +1,13 @@
 const mongoose = require('mongoose');
 
-const messageSchema = new mongoose.Schema({
-    sender: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Reference to the User model
-        required: true,
-    },
-    receiver: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Reference to the User model (for private chats)
-    },
-    group: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Group', // Reference to the Group model (for group chats)
-    },
-    content: {
-        type: String,
-        required: true,
-    },
-    timestamp: {
-        type: Date,
-        default: Date.now,
-    },
+const messageSchema = new mongoose.Schema(
+  {
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    message: { type: String, required: true },
+    scheduledTime: { type: Date }, // New field to store the scheduled time
+    status: { type: String, default: 'pending' }, // Message status (pending, sent, etc.)
+    createdAt: { type: Date, default: Date.now },
     reactions: [
         {
             user: {
@@ -35,7 +21,9 @@ const messageSchema = new mongoose.Schema({
             },
         },
     ],
-});
+  },
+  { timestamps: true }
+);
 
 const Message = mongoose.model('Message', messageSchema);
 

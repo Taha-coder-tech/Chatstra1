@@ -39,6 +39,12 @@ const chatSchema = new mongoose.Schema({
         timestamp: { type: Date, default: Date.now },
     }],
     pinnedMessages: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Message' }], // New field
+
+    // Update fields from the update:
+    status: { type: String, default: 'pending' },  // Added status field from update
+    createdAt: { type: Date, default: Date.now }, // Added createdAt field from update
 }, { timestamps: true });
 
-module.exports = mongoose.model('Chat', chatSchema);
+const Chat = mongoose.model('Chat', chatSchema);
+
+module.exports = Chat;
