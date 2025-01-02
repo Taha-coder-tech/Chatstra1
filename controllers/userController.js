@@ -159,11 +159,32 @@ const registerUser = async (req, res) => {
     }
 };
 
+// Get user activity data (last seen, typing status)
+const getUserActivity = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const activity = {
+            lastSeen: user.lastSeen,
+            isTyping: user.isTyping
+        };
+
+        res.status(200).json({ activity });
+    } catch (error) {
+        console.error('Error fetching user activity:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
 module.exports = { 
     updateProfilePicture, 
     updateStatus, 
     savePushToken, 
     blockUser, 
     reportUser, 
-    registerUser 
+    registerUser,
+    getUserActivity
 };

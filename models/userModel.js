@@ -76,6 +76,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: 'en', // Default to English
     },
+    isTyping: {
+      type: Boolean,
+      default: false, // Tracks if the user is typing
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { timestamps: true } // Add createdAt and updatedAt fields
 );

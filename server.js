@@ -29,6 +29,9 @@ const pollRoutes = require('./routes/pollRoutes');  // New import
 const messageRoutes = require('./routes/messageRoutes');
 require('./services/scheduler'); // Import the scheduler to run the background job
 
+// Import new activity routes
+const activityRoutes = require('./routes/activityRoutes');  // New import for activity routes
+
 // Connect to the database
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/Chatstra', {
     useNewUrlParser: true,
@@ -294,6 +297,9 @@ app.use('/api/messages', messageRoutes); // Use the message routes
 // Add the new analytics route at the end
 const analyticsRoutes = require('./routes/analyticsRoutes');
 app.use('/api/analytics', analyticsRoutes); // Add analyticsRoutes
+
+// Add the new activity route at the end
+app.use('/api/activity', activityRoutes); // Added activityRoutes
 
 // Default route
 app.get('/', (req, res) => res.send('Server is running'));

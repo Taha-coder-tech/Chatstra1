@@ -2,10 +2,10 @@
 const express = require('express');
 const User = require('../models/userModel');
 const router = express.Router();
-const authenticateUser = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 // Get user's preferred language
-router.get('/language', authenticateUser, async (req, res) => {
+router.get('/language', protect, async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
         if (!user) {
@@ -19,7 +19,7 @@ router.get('/language', authenticateUser, async (req, res) => {
 });
 
 // Update user's preferred language
-router.put('/language', authenticateUser, async (req, res) => {
+router.put('/language', protect, async (req, res) => {
     const { preferredLanguage } = req.body;
 
     try {
